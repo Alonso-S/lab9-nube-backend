@@ -1,0 +1,70 @@
+# Node modules
+node_modules/
+.env
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment override files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Ignore Sequelize CLI files (if using migrations)
+.sequelize-temp/
+migrations/*.js~
+seeders/*.js~
+
+# Coverage and test output
+coverage/
+.nyc_output/
+jest-output/
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Build output
+dist/
+build/
+tmp/
+temp/
+
+# Optional: exclude SQLite DB if used
+*.sqlite
+*.sqlite3
+
+# Optional: exclude backups
+*.bak
+*.old
+
+# Mac/Linux hidden files
+*.swp
+*~
+
+# AWS credentials or local credentials files (DO NOT USE in your repo, but listed just in case)
+.aws/
+
+# Optional: log file from AWS SDK
+aws-sdk-logs/
+
+# Ignore uploaded files (if you store files locally during dev)
+uploads/
+public/uploads/
