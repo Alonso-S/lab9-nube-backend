@@ -10,20 +10,35 @@ const upload = multer();
 app.use(cors());
 app.use(express.json());
 
+// Configurar AWS SDK con credenciales y región (pero sin el bucket aquí)
 const s3 = new AWS.S3({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     region: process.env.AWS_REGION,
 });
 
+// Obtener la URL base del bucket desde la tabla Configs
 async function getBucketBaseUrl() {
     const config = await Config.findOne({ where: { key: "S3_BUCKET_URL" } });
     return config?.value || "";
 }
 
+// Extraer solo el nombre del bucket desde la URL
+function extractBucketNameFromUrl(url) {
+    const match = url.match(/^https?:\/\/([^\.]+)\.s3\./);
+    return match ? match[1] : null;
+}
+
+// Subir archivo a S3
 async function uploadToS3(file, key) {
+    const bucketUrl = await getBucketBaseUrl();
+    const bucketName = extractBucketNameFromUrl(bucketUrl);
+    if (!bucketName) {
+        throw new Error("No se pudo obtener el nombre del bucket desde la URL");
+    }
+
     const params = {
-        Bucket: process.env.AWS_BUCKET_NAME,
+        Bucket: bucketName,
         Key: key,
         Body: file.buffer,
     };
@@ -31,21 +46,28 @@ async function uploadToS3(file, key) {
     return key;
 }
 
+// Eliminar archivo de S3
 async function deleteFromS3(key) {
+    const bucketUrl = await getBucketBaseUrl();
+    const bucketName = extractBucketNameFromUrl(bucketUrl);
+    if (!bucketName) {
+        throw new Error("No se pudo obtener el nombre del bucket desde la URL");
+    }
+
     const params = {
-        Bucket: process.env.AWS_BUCKET_NAME,
+        Bucket: bucketName,
         Key: key,
     };
     await s3.deleteObject(params).promise();
 }
 
+// Crear producto
 app.post("/products", upload.single("image"), async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
         const { name, description } = req.body;
         const file = req.file;
 
-        // Crear el producto sin imagen para obtener el ID
         const product = await Product.create({ name, description }, {
             transaction,
         });
@@ -74,6 +96,7 @@ app.post("/products", upload.single("image"), async (req, res) => {
     }
 });
 
+// Obtener todos los productos
 app.get("/products", async (req, res) => {
     try {
         const bucketUrl = await getBucketBaseUrl();
@@ -89,6 +112,7 @@ app.get("/products", async (req, res) => {
     }
 });
 
+// Obtener un producto por ID
 app.get("/products/:id", async (req, res) => {
     try {
         const product = await Product.findByPk(req.params.id);
@@ -109,6 +133,7 @@ app.get("/products/:id", async (req, res) => {
     }
 });
 
+// Actualizar producto
 app.put("/products/:id", upload.single("image"), async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
@@ -123,7 +148,7 @@ app.put("/products/:id", upload.single("image"), async (req, res) => {
         let image_path = product.image_path;
 
         if (file) {
-            // Borrar imagen anterior si existe
+            // Eliminar imagen anterior si existe
             if (image_path) {
                 await deleteFromS3(image_path);
             }
@@ -151,6 +176,7 @@ app.put("/products/:id", upload.single("image"), async (req, res) => {
     }
 });
 
+// Eliminar producto
 app.delete("/products/:id", async (req, res) => {
     try {
         const product = await Product.findByPk(req.params.id);
@@ -158,7 +184,6 @@ app.delete("/products/:id", async (req, res) => {
             return res.status(404).json({ error: "Producto no encontrado" });
         }
 
-        // Eliminar imagen del bucket si existe
         if (product.image_path) {
             await deleteFromS3(product.image_path);
         }
@@ -171,6 +196,7 @@ app.delete("/products/:id", async (req, res) => {
     }
 });
 
+// Iniciar servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
     try {
